@@ -1,0 +1,107 @@
+---
+title: "NOAA Assignment"
+author: "Steph K"
+date: "9/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Impacts of Severe Weather Events on Population Health
+===============================================================
+
+## Synopsis
+The public NOAA Storm Database was used to evaluate the impact of severe weather events on population health. The NOAA Storm Database includes major storm and weather event related data between 1950 and 2011. In particular, the dataset was used to answer the following two questions:
+- Which types of events are most harmful with respect to population health across the US?
+- Which types of events have the greatest economic consequences across the US?
+
+Results of the analysis point to the following findings:
+1. Tornados and excessive heat pose the largest risk to human health as measured by fatalities and injuries
+2. Flooding has caused the largest economic losses to property since 1950, and drought the largest economic losses to crops. 
+
+## Data Processing
+### Load Data to R
+Before preparing the zipped NOAA dataset for analysis, it was loaded directly into RStudio using the read.csv() command and the str() function was used to gain a better understanding of the available data. The full dataset has 902,279 observations, 37 variables (numeric, character, and integer), and includes missing values.
+
+The main differentiator of storm and weather events is **EVTYPE** and the two main population health outcomes of interest are **FATALITIES** and **INJURIES**. In regards to economic damage, the two main outcomes of interest are **property damage (PROPDMG)** and **crop damage (CROPDMG)**.
+
+```{r load}
+getwd()
+data <- read.csv("repdata_data_StormData.csv.bz2")
+str(data)
+```
+
+### Prepare Data for Analysis
+Run a few frequencies on the main variables of interest, paying attention to missings.
+```{r prep1}
+table(is.na(data$EVTYPE))
+table(is.na(data$FATALITIES))
+table(is.na(data$INJURIES))
+table(is.na(data$PROPDMG))
+table(data$PROPDMGEXP)
+table(is.na(data$CROPDMG))
+table(data$CROPDMGEXP)
+```
+There are no missing values for EVTYPE, FATALITIES, INJURIES, PROPDMG, or CROPDMG. The values for both PROPDMGEXP and CROPDMGEXP, which provide the magnitude of the PROPDMG and CROPDMG, respectively, are reported inconsistently. As a result, the damage values should be updated to represent the magnitude prior to analysis; a magnitude of billions was selected
+```{r prep2}
+data2 <- data
+data2$PROPDMG <- ifelse(data2$PROPDMGEXP=="k"|data2$PROPDMGEXP=="K", (data2$PROPDMG*1000)/1000000000,
+ifelse(data2$PROPDMGEXP=="m"|data2$PROPDMGEXP=="M", (data2$PROPDMG*1000000)/1000000000, 
+ifelse(data2$PROPDMGEXP=="b"|data2$PROPDMGEXP=="B", data2$PROPDMG, 0)))
+
+data2$CROPDMG <- ifelse(data2$CROPDMGEXP=="k"|data2$CROPDMGEXP=="K", (data2$CROPDMG*1000)/1000000000,
+ifelse(data2$CROPDMGEXP=="m"|data2$CROPDMGEXP=="M", (data2$CROPDMG*1000000)/1000000000, 
+ifelse(data2$CROPDMGEXP=="b"|data2$CROPDMGEXP=="B", data2$CROPDMG, 0)))
+```
+
+## Analysis
+To address the first objective related to the population health impact of storm and event types, a summary of INJURIES and FATALITIES by the top 10 EVTYPEs was generated.
+
+In the first frequency of event by fatalities, the events most harmful to population health were:
+```{r analysis1}
+fatal0 <- subset(data, data$FATALITIES > 0)
+fatal_cnt <- sum(fatal0$FATALITIES)
+fatal1 <- setNames(aggregate(fatal0$FATALITIES ~ toupper(fatal0$EVTYPE), FUN = sum), c("EVTYPE", "FATALITIES"))
+fatal2 <- head(fatal1[order(-fatal1$FATALITIES),],n=10)
+fatal2
+fatal_cnt2 <- fatal2[1,2] + fatal2[2,2]
+fatal_perc <- (fatal_cnt2 / fatal_cnt) * 100
+```
+
+Transitioning to the context of injuries, the events most harmful to population health were:
+```{r analysis2}
+injur0 <- subset(data, data$INJURIES > 0)
+injur_cnt <- sum(injur0$INJURIES)
+injur1 <- setNames(aggregate(injur0$FATALITIES ~ toupper(injur0$EVTYPE), FUN = sum), c("EVTYPE", "INJURIES"))
+injur2 <- head(injur1[order(-injur1$INJURIES),],n=10)
+injur2
+injur_cnt2 <- injur2[1,2] + injur2[2,2]
+injur_perc <- (injur_cnt2 / injur_cnt) * 100
+```
+
+To address the second objective related to the economic consequences of storm and event types, a summaries of property damage (PROPDMG) and crop damage (CROPDMG) by the top 10 EVTYPEs were generated.
+
+In the first frequency of event by property damage, the events most harmful to the economy were:
+```{r analysis 3}
+prop0 <- subset(data2, data2$PROPDMG > 0)
+prop1 <- setNames(aggregate(prop0$PROPDMG ~ toupper(prop0$EVTYPE), FUN = sum), c("EVTYPE", "PROPERTY DAMAGE"))
+prop2 <- head(prop1[order(-prop1$`PROPERTY DAMAGE`),],n=10)
+prop2
+```
+
+
+Transitioning to the context of crop damage, the events most harmful to the economy were:
+```{r analysis 4}
+crop0 <- subset(data2, data2$CROPDMG > 0)
+crop1 <- setNames(aggregate(crop0$CROPDMG ~ toupper(crop0$EVTYPE), FUN = sum), c("EVTYPE", "CROP DAMAGE"))
+crop2 <- head(crop1[order(-crop1$`CROP DAMAGE`),],n=10)
+crop2
+```
+
+## Results
+Tornados and excessive heat are the top two events causing fatalities and injuries. Fatalities from tornados and excessive heat represented `r fatal_perc`% of all event fatalities, while injuries from tornados and excessive heat, representing `r injur_perc`% of all event injuries.
+
+The number one event cause of property damage since 1950 is Floods and the number of one event cause of crop damage is Droughts. Property damage appears much more costly than crop damage (~10x), yet the damage done by all storm and event categories has been costly. 
+
